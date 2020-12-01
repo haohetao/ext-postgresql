@@ -651,6 +651,13 @@ static int query_result_parse(pg_object *object) {
         ZVAL_FALSE(&return_value);
         swoole_event_del(object->socket);
         zend_update_property_string(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(object->object), ZEND_STRL("error"), err_msg);
+		if (PQstatus(object->conn) != CONNECTION_OK) {
+			zend_update_property_long(
+				swoole_postgresql_coro_ce, SW_Z8_OBJ_P(object->object), ZEND_STRL("errCode"), 11);
+		} else {
+			zend_update_property_long(
+				swoole_postgresql_coro_ce, SW_Z8_OBJ_P(object->object), ZEND_STRL("errCode"), 10);
+		}
         PHPCoroutine::resume_m(context, &return_value);
         break;
     case PGRES_COMMAND_OK: /* successful command that did not return rows */
