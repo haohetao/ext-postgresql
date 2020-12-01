@@ -757,6 +757,11 @@ static PHP_METHOD(swoole_postgresql_coro, query) {
     int ret = PQsendQuery(pgsql, Z_STRVAL_P(query));
     if (ret == 0) {
         char *err_msg = PQerrorMessage(pgsql);
+        if (PQstatus(pgsql) != CONNECTION_OK) {
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 11);
+        } else {
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 10);
+        }
         zend_update_property_string(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("error"), err_msg);
         RETURN_FALSE;
     }
@@ -801,16 +806,12 @@ static PHP_METHOD(swoole_postgresql_coro, prepare) {
     }
 
     if (!PQsendPrepare(pgsql, Z_STRVAL_P(stmtname), Z_STRVAL_P(query), 0, NULL)) {
-        if (is_non_blocking) {
-            RETURN_FALSE;
+        if (PQstatus(pgsql) != CONNECTION_OK) {
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 11);
         } else {
-            /*if ((PGG(auto_reset_persistent) & 2) && PQstatus(pgsql) != CONNECTION_OK) {
-             PQreset(pgsql);
-             }*/
-            if (!PQsendPrepare(pgsql, Z_STRVAL_P(stmtname), Z_STRVAL_P(query), 0, NULL)) {
-                RETURN_FALSE;
-            }
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 10);
         }
+        RETURN_FALSE
     }
 
     if (swoole_event_add(object->socket, SW_EVENT_READ) < 0) {
@@ -884,20 +885,14 @@ static PHP_METHOD(swoole_postgresql_coro, execute) {
 
     if (PQsendQueryPrepared(pgsql, Z_STRVAL_P(stmtname), num_params, (const char *const *) params, NULL, NULL, 0)) {
         _php_pgsql_free_params(params, num_params);
-    } else if (is_non_blocking) {
-        _php_pgsql_free_params(params, num_params);
-        RETURN_FALSE;
     } else {
-        /*
-        if ((PGG(auto_reset_persistent) & 2) && PQstatus(pgsql) != CONNECTION_OK) {
-            PQreset(pgsql);
+        _php_pgsql_free_params(params, num_params);
+        if (PQstatus(pgsql) != CONNECTION_OK) {
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 11);
+        } else {
+            zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 10);
         }
-        */
-        if (!PQsendQueryPrepared(
-                pgsql, Z_STRVAL_P(stmtname), num_params, (const char *const *) params, NULL, NULL, 0)) {
-            _php_pgsql_free_params(params, num_params);
-            RETURN_FALSE;
-        }
+        RETURN_FALSE;
     }
 
     FutureTask *context = php_swoole_postgresql_coro_get_context(ZEND_THIS);
