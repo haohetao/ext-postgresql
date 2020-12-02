@@ -818,7 +818,7 @@ static PHP_METHOD(swoole_postgresql_coro, prepare) {
         } else {
             zend_update_property_long(swoole_postgresql_coro_ce, SW_Z8_OBJ_P(ZEND_THIS), ZEND_STRL("errCode"), 10);
         }
-        RETURN_FALSE
+        RETURN_FALSE;
     }
 
     if (swoole_event_add(object->socket, SW_EVENT_READ) < 0) {
